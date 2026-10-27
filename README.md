@@ -1,4 +1,4 @@
-# ⚽ Live Gol Série A - API Oficial
+# <img src="https://i.postimg.cc/J7s81cJG/Gemini-Generated-Image-68mx5c68mx5c68mx.jpg" alt="Live Gol Logo" width="45" height="45" style="vertical-align: middle;"> Live Gol Série A - API Oficial
 
 API REST em tempo real desenvolvida com **FastAPI** e hospedada no **Render**, criada para rastrear e fornecer dados atualizados das partidas do **Campeonato Brasileiro Série A**. O sistema organiza os jogos de forma dinâmica em abas (*Ao Vivo*, *Agendados* e *Encerrados*), trazendo os escudos oficiais dos clubes e status atualizados em tempo real.
 
