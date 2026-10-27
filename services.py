@@ -1,63 +1,148 @@
 from datetime import datetime, timezone
+import requests
+
+ESPN_API_URL = "https://site.api.espn.com/apis/site/v2/sports/soccer/brazil.1/scoreboard"
 
 def buscar_jogos_serie_a():
-    """
-    Retorna os dados estruturados do Brasileirão Série A para o Live Gol Série A,
-    garantindo estabilidade total e zero erros de conexão (Erro 400/443).
-    """
-    jogos = [
-        {
-            "id": "1",
-            "nome_evento": "Flamengo x Palmeiras",
-            "mandante": "Flamengo",
-            "visitante": "Palmeiras",
-            "placar": "1 x 0",
-            "status": "Em andamento (35')",
-            "cor_status": "verde",
-            "aba_sugerida": "ao vivo",
-            "minutos_para_inicio": -35,
-            "data_original": "2026-06-01T19:00:00Z"
-        },
-        {
-            "id": "2",
-            "nome_evento": "São Paulo x Corinthians",
-            "mandante": "São Paulo",
-            "visitante": "Corinthians",
-            "placar": "0 x 0",
-            "status": "Começa em 8 min",
-            "cor_status": "azul",
-            "aba_sugerida": "ao vivo",
-            "minutos_para_inicio": 8,
-            "data_original": "2026-06-01T20:00:00Z"
-        },
-        {
-            "id": "3",
-            "nome_evento": "Botafogo x Fluminense",
-            "mandante": "Botafogo",
-            "visitante": "Fluminense",
-            "placar": "0 x 0",
-            "status": "Agendado (21:30)",
-            "cor_status": "azul",
-            "aba_sugerida": "agendados",
-            "minutos_para_inicio": 90,
-            "data_original": "2026-06-01T21:30:00Z"
-        },
-        {
-            "id": "4",
-            "nome_evento": "Grêmio x Internacional",
-            "mandante": "Grêmio",
-            "visitante": "Internacional",
-            "placar": "2 x 1",
-            "status": "Encerrado",
-            "cor_status": "gelo",
-            "aba_sugerida": "encerrados",
-            "minutos_para_inicio": -180,
-            "data_original": "2026-06-01T16:00:00Z"
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "application/json"
         }
-    ]
+        
+        # Tenta buscar os dados da rodada atual / jogos do dia
+        response = requests.get(ESPN_API_URL, headers=headers, timeout=10)
+        
+        if response.status_code != 200:
+            return {
+                "status": "erro",
+                "mensagem": f"Falha ao conectar com a API oficial (Status: {response.status_code})",
+                "jogos": []
+            }
+        
+        dados = response.json()
+        eventos = dados.get("events", [])
+        
+        if not eventos:
+            return {
+                "status": "sucesso",
+                "mensagem": "Não há partidas do Brasileirão Série A agendadas para o momento.",
+                "jogos": []
+            }
 
-    return {
-        "status": "sucesso",
-        "fonte": "Live Gol Série A - Oficial",
-        "jogos": jogos
-    }
+        jogos_processados = []
+        agora_utc = datetime.now(timezone.utc)
+
+        for evento in eventos:
+            id_jogo = evento.get("id")
+            nome_evento = evento.get("name")
+            data_str = evento.get("date")
+            
+            competicao = evento.get("competitions", [{}])[0]
+            status_obj = competicao.get("status", {})
+            tipo_status = status_obj.get("type", {})
+            
+            estado_original = tipo_status.get("name")
+            descricao_status = tipo_status.get("description")
+            
+            competidores = competicao.get("competitors", [])
+            mandante = "Mandante"
+            visitante = "Visitante"
+            placar_mandante = "0"
+            placar_visitante = "0"
+            escudo_mandante = ""
+            escudo_visitante = ""
+
+            for comp in competidores:
+                lugar = comp.get("homeAway")
+                time_info = comp.get("team", {})
+                nome_time = time_info.get("displayName", "")
+                gols = comp.get("score", "0")
+                logo = time_info.get("logo", "") # URL oficial do escudo do clube
+                
+                if lugar == "home":
+                    mandante = nome_time
+                    placar_mandante = gols
+                    escudo_mandante = logo
+                else:
+                    visitante = nome_time
+                    placar_visitante = gols
+                    escudo_visitante = logo
+
+            placar = f"{placar_mandante} x {placar_visitante}"
+
+            minutos_para_inicio = 999
+            if data_str:
+                try:
+                    data_jogo_utc = datetime.fromisoformat(data_str.replace("Z", "+00:00"))
+                    diferenca = data_jogo_utc - agora_utc
+                    minutos_para_inicio = int(diferenca.total_seconds() / 60)
+                except Exception:
+                    pass
+
+            aba_sugerida = "agendados"
+            cor_status = "azul"
+            status_traduzido = descricao_status or "Agendado"
+
+            if estado_original in ["STATUS_FINAL", "FT"]:
+                aba_sugerida = "encerrados"
+                cor_status = "gelo"
+                status_traduzido = "Encerrado"
+            elif estado_original in ["STATUS_POSTPONED", "POSTPONED"]:
+                aba_sugerida = "encerrados"
+                cor_status = "gelo"
+                status_traduzido = "Adiado"
+            elif estado_original in ["STATUS_CANCELED", "CANCELED"]:
+                aba_sugerida = "encerrados"
+                cor_status = "gelo"
+                status_traduzido = "Cancelado"
+            elif estado_original in ["STATUS_IN_PROGRESS", "HT", "STATUS_HALFTIME"]:
+                aba_sugerida = "ao vivo"
+                if estado_original in ["HT", "STATUS_HALFTIME"]:
+                    cor_status = "amarelo"
+                    status_traduzido = "Intervalo"
+                else:
+                    cor_status = "verde"
+                    status_traduzido = "Em andamento"
+            elif estado_original in ["STATUS_SCHEDULED", "TIMED"]:
+                if 0 <= minutos_para_inicio <= 10:
+                    aba_sugerida = "ao vivo"
+                    cor_status = "azul"
+                    status_traduzido = f"Começa em {minutos_para_inicio} min"
+                elif minutos_para_inicio < 0:
+                    aba_sugerida = "ao vivo"
+                    cor_status = "verde"
+                    status_traduzido = "Vai começar"
+                else:
+                    hora_formatada = data_str[11:16] if data_str and len(data_str) >= 16 else ""
+                    aba_sugerida = "agendados"
+                    cor_status = "azul"
+                    status_traduzido = f"Agendado ({hora_formatada})"
+
+            jogos_processados.append({
+                "id": id_jogo,
+                "nome_evento": nome_evento,
+                "mandante": mandante,
+                "escudo_mandante": escudo_mandante,
+                "visitante": visitante,
+                "escudo_visitante": escudo_visitante,
+                "placar": placar,
+                "status": status_traduzido,
+                "cor_status": cor_status,
+                "aba_sugerida": aba_sugerida,
+                "minutos_para_inicio": minutos_para_inicio,
+                "data_original": data_str
+            })
+
+        return {
+            "status": "sucesso",
+            "fonte": "Live Gol Série A - Oficial",
+            "jogos": jogos_processados
+        }
+
+    except Exception as e:
+        return {
+            "status": "erro",
+            "mensagem": str(e),
+            "jogos": []
+        }
