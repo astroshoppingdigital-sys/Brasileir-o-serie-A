@@ -1,72 +1,59 @@
 from datetime import datetime, timezone
 import requests
 
-# Rota alternativa da ESPN (geralmente usada pelo app web deles, sem bloqueio de 400)
-ESPN_API_URL = "https://site.core.api.espn.com/apis/v2/scoreboard/header?sport=soccer&league=bra.1"
+# URL de uma API pública e aberta para resultados de futebol
+API_URL = "https://www.thesportsdb.com/api/v1/json/3/eventsseason.php?id=4328&s=2026"
 
 def buscar_jogos_serie_a():
     try:
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
             "Accept": "application/json"
         }
         
-        response = requests.get(ESPN_API_URL, headers=headers, timeout=10)
+        response = requests.get(API_URL, headers=headers, timeout=10)
         
         if response.status_code != 200:
-            return {"jogos": [], "aviso": f"Falha na API alternativa (Status: {response.status_code})"}
+            return {"jogos": [], "aviso": f"Falha ao contactar a API de resultados (Status: {response.status_code})"}
         
         dados = response.json()
+        eventos = dados.get("events", [])
         
-        # O formato dessa rota core costuma vir aninhado em sports -> leagues -> events
-        eventos = []
-        try:
-            sports = dados.get("sports", [])
-            for sport in sports:
-                leagues = sport.get("leagues", [])
-                for league in leagues:
-                    eventos = league.get("events", [])
-        except Exception:
-            eventos = dados.get("events", [])
+        # Caso a temporada específica venha vazia, tentamos uma rota de placares gerais
+        if not eventos:
+            # Fallback para endpoint geral de eventos de futebol brasileiro
+            url_alternativa = "https://www.thesportsdb.com/api/v1/json/3/eventsday.php?d=2026-06-01"
+            resp_alt = requests.get(url_alternativa, headers=headers, timeout=10)
+            if resp_alt.status_code == 200:
+                eventos = resp_alt.json().get("events", [])
 
         jogos_processados = []
         agora_utc = datetime.now(timezone.utc)
 
         for evento in eventos:
-            id_jogo = evento.get("id")
-            nome_evento = evento.get("name")
-            data_str = evento.get("date")
+            id_jogo = evento.get("idEvent")
+            nome_evento = evento.get("strEvent")
+            data_str = evento.get("dateEvent")
+            hora_str = evento.get("strTime", "20:00:00")
             
-            competicao = evento.get("competitions", [{}])[0]
-            status_obj = competicao.get("status", {})
-            tipo_status = status_obj.get("type", {})
+            mandante = evento.get("strHomeTeam", "Mandante")
+            visitante = evento.get("strAwayTeam", "Visitante")
             
-            estado_original = tipo_status.get("name")
-            descricao_status = tipo_status.get("description")
+            gols_mandante = evento.get("intHomeScore")
+            gols_visitante = evento.get("intAwayScore")
             
-            competidores = competicao.get("competitors", [])
-            mandante = "Mandante"
-            visitante = "Visitante"
-            placar_mandante = "0"
-            placar_visitante = "0"
+            placar_m = str(gols_mandante) if gols_mandante is not None else "0"
+            placar_v = str(gols_visitante) if gols_visitante is not None else "0"
+            placar = f"{placar_m} x {placar_v}"
 
-            for comp in competidores:
-                lugar = comp.get("homeAway")
-                nome_time = comp.get("team", {}).get("displayName", "")
-                gols = comp.get("score", "0")
-                if lugar == "home":
-                    mandante = nome_time
-                    placar_mandante = gols
-                else:
-                    visitante = nome_time
-                    placar_visitante = gols
-
-            placar = f"{placar_mandante} x {placar_visitante}"
-
+            status_evento = evento.get("strStatus", "Not Started")
+            
+            # Cálculo de minutos se houver data completa
             minutos_para_inicio = 999
             if data_str:
                 try:
-                    data_jogo_utc = datetime.fromisoformat(data_str.replace("Z", "+00:00"))
+                    dt_completa = f"{data_str}T{hora_str}Z"
+                    data_jogo_utc = datetime.fromisoformat(dt_completa.replace("Z", "+00:00"))
                     diferenca = data_jogo_utc - agora_utc
                     minutos_para_inicio = int(diferenca.total_seconds() / 60)
                 except Exception:
@@ -74,41 +61,29 @@ def buscar_jogos_serie_a():
 
             aba_sugerida = "agendados"
             cor_status = "azul"
-            status_traduzido = descricao_status or "Agendado"
+            status_traduzido = "Agendado"
 
-            if estado_original in ["STATUS_FINAL", "FT"]:
+            if status_evento in ["FT", "AET", "Pen"]:
                 aba_sugerida = "encerrados"
                 cor_status = "gelo"
                 status_traduzido = "Encerrado"
-            elif estado_original in ["STATUS_POSTPONED", "POSTPONED"]:
-                aba_sugerida = "encerrados"
-                cor_status = "gelo"
-                status_traduzido = "Adiado"
-            elif estado_original in ["STATUS_CANCELED", "CANCELED"]:
-                aba_sugerida = "encerrados"
-                cor_status = "gelo"
-                status_traduzido = "Cancelado"
-            elif estado_original in ["STATUS_IN_PROGRESS", "HT", "STATUS_HALFTIME"]:
+            elif status_evento in ["Live", "HT"]:
                 aba_sugerida = "ao vivo"
-                if estado_original in ["HT", "STATUS_HALFTIME"]:
-                    cor_status = "amarelo"
-                    status_traduzido = "Intervalo"
-                else:
-                    cor_status = "verde"
-                    status_traduzido = "Em andamento"
-            elif estado_original in ["STATUS_SCHEDULED", "TIMED"]:
+                cor_status = "verde" if status_evento == "Live" else "amarelo"
+                status_traduzido = "Em andamento" if status_evento == "Live" else "Intervalo"
+            else:
                 if 0 <= minutos_para_inicio <= 10:
                     aba_sugerida = "ao vivo"
                     cor_status = "azul"
                     status_traduzido = f"Começa em {minutos_para_inicio} min"
-                elif minutos_para_inicio < 0:
+                elif minutos_para_inicio < 0 and status_evento not in ["FT"]:
                     aba_sugerida = "ao vivo"
                     cor_status = "verde"
-                    status_traduzido = "Vai começar"
+                    status_traduzido = "Em andamento"
                 else:
                     aba_sugerida = "agendados"
                     cor_status = "azul"
-                    status_traduzido = f"Agendado ({data_str[11:16] if data_str and len(data_str) >= 16 else ''})"
+                    status_traduzido = f"Agendado ({hora_str[:5]})"
 
             jogos_processados.append({
                 "id": id_jogo,
@@ -120,7 +95,7 @@ def buscar_jogos_serie_a():
                 "cor_status": cor_status,
                 "aba_sugerida": aba_sugerida,
                 "minutos_para_inicio": minutos_para_inicio,
-                "status_original": estado_original,
+                "status_original": status_evento,
                 "data_original": data_str
             })
 
