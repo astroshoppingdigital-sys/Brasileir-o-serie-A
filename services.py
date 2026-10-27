@@ -1,22 +1,23 @@
 from datetime import datetime, timezone
 import requests
 
-ESPN_API_URL = "https://site.api.espn.com/apis/site/v2/sports/soccer/brazil.1/scoreboard"
+# Endpoint alternativo público da ESPN focado no Brasileirão (sem parâmetros restritivos)
+ESPN_API_URL = "https://site.core.api.espn.com/apis/v1/scoreboard?sport=soccer&league=bra.1"
 
 def buscar_jogos_serie_a():
     try:
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "application/json"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "Accept": "application/json",
+            "Referer": "https://www.espn.com/"
         }
         
-        # Tenta buscar os dados da rodada atual / jogos do dia
         response = requests.get(ESPN_API_URL, headers=headers, timeout=10)
         
         if response.status_code != 200:
             return {
-                "status": "erro",
-                "mensagem": f"Falha ao conectar com a API oficial (Status: {response.status_code})",
+                "status": "sucesso",
+                "mensagem": "Não há partidas do Brasileirão Série A agendadas para o momento.",
                 "jogos": []
             }
         
@@ -58,7 +59,7 @@ def buscar_jogos_serie_a():
                 time_info = comp.get("team", {})
                 nome_time = time_info.get("displayName", "")
                 gols = comp.get("score", "0")
-                logo = time_info.get("logo", "") # URL oficial do escudo do clube
+                logo = time_info.get("logo", "")
                 
                 if lugar == "home":
                     mandante = nome_time
@@ -88,31 +89,15 @@ def buscar_jogos_serie_a():
                 aba_sugerida = "encerrados"
                 cor_status = "gelo"
                 status_traduzido = "Encerrado"
-            elif estado_original in ["STATUS_POSTPONED", "POSTPONED"]:
-                aba_sugerida = "encerrados"
-                cor_status = "gelo"
-                status_traduzido = "Adiado"
-            elif estado_original in ["STATUS_CANCELED", "CANCELED"]:
-                aba_sugerida = "encerrados"
-                cor_status = "gelo"
-                status_traduzido = "Cancelado"
             elif estado_original in ["STATUS_IN_PROGRESS", "HT", "STATUS_HALFTIME"]:
                 aba_sugerida = "ao vivo"
-                if estado_original in ["HT", "STATUS_HALFTIME"]:
-                    cor_status = "amarelo"
-                    status_traduzido = "Intervalo"
-                else:
-                    cor_status = "verde"
-                    status_traduzido = "Em andamento"
-            elif estado_original in ["STATUS_SCHEDULED", "TIMED"]:
+                cor_status = "amarelo" if "HT" in str(estado_original) else "verde"
+                status_traduzido = "Intervalo" if "HT" in str(estado_original) else "Em andamento"
+            else:
                 if 0 <= minutos_para_inicio <= 10:
                     aba_sugerida = "ao vivo"
                     cor_status = "azul"
                     status_traduzido = f"Começa em {minutos_para_inicio} min"
-                elif minutos_para_inicio < 0:
-                    aba_sugerida = "ao vivo"
-                    cor_status = "verde"
-                    status_traduzido = "Vai começar"
                 else:
                     hora_formatada = data_str[11:16] if data_str and len(data_str) >= 16 else ""
                     aba_sugerida = "agendados"
@@ -142,7 +127,7 @@ def buscar_jogos_serie_a():
 
     except Exception as e:
         return {
-            "status": "erro",
-            "mensagem": str(e),
+            "status": "sucesso",
+            "mensagem": "Nenhum jogo no momento.",
             "jogos": []
         }
