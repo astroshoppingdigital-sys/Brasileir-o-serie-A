@@ -2,19 +2,27 @@
 from datetime import datetime, timezone
 import requests
 
-# URL limpa da API da ESPN para o Brasileirão Série A
 ESPN_API_URL = "https://site.api.espn.com/apis/site/v2/sports/soccer/brazil.1/scoreboard"
 
 def buscar_jogos_serie_a():
     try:
-        # Usando um User-Agent padrão de navegador web comum
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Accept": "application/json"
         }
         
-        response = requests.get(ESPN_API_URL, headers=headers, timeout=10)
+        # Passando a data atual para garantir que a ESPN responda com sucesso (evita erro 400)
+        data_hoje = datetime.now().strftime("%Y%m%d")
+        params = {"dates": data_hoje}
+
+        response = requests.get(ESPN_API_URL, headers=headers, params=params, timeout=10)
         
+        # Se por acaso a data de hoje não trouxer eventos (dia sem rodada), tenta buscar sem parâmetros
+        if response.status_code == 200:
+            dados = response.json()
+            if not dados.get("events"):
+                response = requests.get(ESPN_API_URL, headers=headers, timeout=10)
+
         if response.status_code != 200:
             return {"erro": f"Falha ao conectar com a API da ESPN (Status: {response.status_code})"}
         
@@ -100,7 +108,7 @@ def buscar_jogos_serie_a():
                 else:
                     aba_sugerida = "agendados"
                     cor_status = "azul"
-                    status_traduzido = f"Agendado ({data_str[11:16]})"
+                    status_traduzido = f"Agendado ({data_str[11:16] if len(data_str) >= 16 else ''})"
 
             jogos_processados.append({
                 "id": id_jogo,
