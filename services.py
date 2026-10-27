@@ -1,8 +1,8 @@
 from datetime import datetime, timezone
 import requests
 
-# Endpoint alternativo público da ESPN focado no Brasileirão (sem parâmetros restritivos)
-ESPN_API_URL = "https://site.core.api.espn.com/apis/v1/scoreboard?sport=soccer&league=bra.1"
+# Endpoint completo da ESPN para o Brasileirão Série A (traz o calendário da temporada)
+ESPN_API_URL = "https://site.api.espn.com/apis/site/v2/sports/soccer/brazil.1/scoreboard"
 
 def buscar_jogos_serie_a():
     try:
@@ -12,12 +12,13 @@ def buscar_jogos_serie_a():
             "Referer": "https://www.espn.com/"
         }
         
+        # Faz a requisição para puxar os eventos disponíveis no feed da competição
         response = requests.get(ESPN_API_URL, headers=headers, timeout=10)
         
         if response.status_code != 200:
             return {
                 "status": "sucesso",
-                "mensagem": "Não há partidas do Brasileirão Série A agendadas para o momento.",
+                "mensagem": "Nenhum jogo encontrado no momento.",
                 "jogos": []
             }
         
@@ -27,7 +28,7 @@ def buscar_jogos_serie_a():
         if not eventos:
             return {
                 "status": "sucesso",
-                "mensagem": "Não há partidas do Brasileirão Série A agendadas para o momento.",
+                "mensagem": "Nenhum jogo encontrado no momento.",
                 "jogos": []
             }
 
@@ -81,6 +82,7 @@ def buscar_jogos_serie_a():
                 except Exception:
                     pass
 
+            # Classificação automática baseada no status real da partida
             aba_sugerida = "agendados"
             cor_status = "azul"
             status_traduzido = descricao_status or "Agendado"
@@ -89,6 +91,10 @@ def buscar_jogos_serie_a():
                 aba_sugerida = "encerrados"
                 cor_status = "gelo"
                 status_traduzido = "Encerrado"
+            elif estado_original in ["STATUS_POSTPONED", "POSTPONED", "STATUS_CANCELED", "CANCELED"]:
+                aba_sugerida = "encerrados"
+                cor_status = "gelo"
+                status_traduzido = "Adiado / Cancelado"
             elif estado_original in ["STATUS_IN_PROGRESS", "HT", "STATUS_HALFTIME"]:
                 aba_sugerida = "ao vivo"
                 cor_status = "amarelo" if "HT" in str(estado_original) else "verde"
@@ -99,10 +105,17 @@ def buscar_jogos_serie_a():
                     cor_status = "azul"
                     status_traduzido = f"Começa em {minutos_para_inicio} min"
                 else:
-                    hora_formatada = data_str[11:16] if data_str and len(data_str) >= 16 else ""
+                    # Formata a data e hora de forma amigável para os agendados
+                    data_formatada = ""
+                    if data_str and len(data_str) >= 16:
+                        dia = data_str[8:10]
+                        mes = data_str[5:7]
+                        hora = data_str[11:16]
+                        data_formatada = f"{dia}/{mes} às {hora}"
+                    
                     aba_sugerida = "agendados"
                     cor_status = "azul"
-                    status_traduzido = f"Agendado ({hora_formatada})"
+                    status_traduzido = f"Agendado ({data_formatada})"
 
             jogos_processados.append({
                 "id": id_jogo,
