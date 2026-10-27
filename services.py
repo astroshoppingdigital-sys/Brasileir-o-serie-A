@@ -1,4 +1,3 @@
-
 from datetime import datetime, timezone
 import requests
 
@@ -11,20 +10,14 @@ def buscar_jogos_serie_a():
             "Accept": "application/json"
         }
         
-        # Passando a data atual para garantir que a ESPN responda com sucesso (evita erro 400)
-        data_hoje = datetime.now().strftime("%Y%m%d")
-        params = {"dates": data_hoje}
-
-        response = requests.get(ESPN_API_URL, headers=headers, params=params, timeout=10)
+        # Requisição limpa sem parâmetros extras para evitar o erro 400 da ESPN
+        response = requests.get(ESPN_API_URL, headers=headers, timeout=10)
         
-        # Se por acaso a data de hoje não trouxer eventos (dia sem rodada), tenta buscar sem parâmetros
-        if response.status_code == 200:
-            dados = response.json()
-            if not dados.get("events"):
-                response = requests.get(ESPN_API_URL, headers=headers, timeout=10)
-
         if response.status_code != 200:
-            return {"erro": f"Falha ao conectar com a API da ESPN (Status: {response.status_code})"}
+            # Tentativa alternativa sem headers caso os cabeçalhos sejam rejeitados
+            response = requests.get(ESPN_API_URL, timeout=10)
+            if response.status_code != 200:
+                return {"jogos": [], "aviso": f"Não foi possível contactar a API da ESPN (Status: {response.status_code})"}
         
         dados = response.json()
         eventos = dados.get("events", [])
@@ -74,7 +67,7 @@ def buscar_jogos_serie_a():
 
             aba_sugerida = "agendados"
             cor_status = "azul"
-            status_traduzido = descricao_status
+            status_traduzido = descricao_status or "Agendado"
 
             if estado_original in ["STATUS_FINAL", "FT"]:
                 aba_sugerida = "encerrados"
@@ -108,7 +101,7 @@ def buscar_jogos_serie_a():
                 else:
                     aba_sugerida = "agendados"
                     cor_status = "azul"
-                    status_traduzido = f"Agendado ({data_str[11:16] if len(data_str) >= 16 else ''})"
+                    status_traduzido = f"Agendado ({data_str[11:16] if data_str and len(data_str) >= 16 else ''})"
 
             jogos_processados.append({
                 "id": id_jogo,
@@ -127,4 +120,4 @@ def buscar_jogos_serie_a():
         return {"jogos": jogos_processados}
 
     except Exception as e:
-        return {"erro": str(e)}
+        return {"jogos": [], "erro": str(e)}
