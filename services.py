@@ -1,13 +1,18 @@
+
 from datetime import datetime, timezone
 import requests
 
-# URL da API pública da ESPN para o Brasileirão Série A
+# URL limpa da API da ESPN para o Brasileirão Série A
 ESPN_API_URL = "https://site.api.espn.com/apis/site/v2/sports/soccer/brazil.1/scoreboard"
 
 def buscar_jogos_serie_a():
     try:
-        # Adicionando User-Agent para evitar bloqueios da API da ESPN
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+        # Usando um User-Agent padrão de navegador web comum
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "application/json"
+        }
+        
         response = requests.get(ESPN_API_URL, headers=headers, timeout=10)
         
         if response.status_code != 200:
@@ -17,22 +22,20 @@ def buscar_jogos_serie_a():
         eventos = dados.get("events", [])
         jogos_processados = []
 
-        # Data e hora atual em UTC
         agora_utc = datetime.now(timezone.utc)
 
         for evento in eventos:
             id_jogo = evento.get("id")
             nome_evento = evento.get("name")
-            data_str = evento.get("date") # Ex: '2026-10-26T21:30:00Z'
+            data_str = evento.get("date")
             
             competicao = evento.get("competitions", [{}])[0]
             status_obj = competicao.get("status", {})
             tipo_status = status_obj.get("type", {})
             
-            estado_original = tipo_status.get("name") # Ex: STATUS_SCHEDULED, STATUS_IN_PROGRESS, STATUS_FINAL
-            descricao_status = tipo_status.get("description") # Ex: "Scheduled", "In Progress", "Full Time"
+            estado_original = tipo_status.get("name")
+            descricao_status = tipo_status.get("description")
             
-            # Times e Placar
             competidores = competicao.get("competitors", [])
             mandante = "Mandante"
             visitante = "Visitante"
@@ -52,7 +55,6 @@ def buscar_jogos_serie_a():
 
             placar = f"{placar_mandante} x {placar_visitante}"
 
-            # Cálculo de tempo e contagem regressiva
             minutos_para_inicio = 999
             if data_str:
                 try:
@@ -62,15 +64,13 @@ def buscar_jogos_serie_a():
                 except Exception:
                     pass
 
-            # Lógica de Status, Cores e Abas
             aba_sugerida = "agendados"
             cor_status = "azul"
             status_traduzido = descricao_status
 
-            # 1. Jogo Encerrado, Adiado ou Cancelado
             if estado_original in ["STATUS_FINAL", "FT"]:
                 aba_sugerida = "encerrados"
-                cor_status = "gelo" # Cinza/Gelo
+                cor_status = "gelo"
                 status_traduzido = "Encerrado"
             elif estado_original in ["STATUS_POSTPONED", "POSTPONED"]:
                 aba_sugerida = "encerrados"
@@ -80,8 +80,6 @@ def buscar_jogos_serie_a():
                 aba_sugerida = "encerrados"
                 cor_status = "gelo"
                 status_traduzido = "Cancelado"
-
-            # 2. Jogo em Andamento (Ao Vivo ou Intervalo)
             elif estado_original in ["STATUS_IN_PROGRESS", "HT", "STATUS_HALFTIME"]:
                 aba_sugerida = "ao vivo"
                 if estado_original in ["HT", "STATUS_HALFTIME"]:
@@ -90,11 +88,8 @@ def buscar_jogos_serie_a():
                 else:
                     cor_status = "verde"
                     status_traduzido = "Em andamento"
-
-            # 3. Jogo Agendado / Contagem Regressiva (10 minutos antes)
             elif estado_original in ["STATUS_SCHEDULED", "TIMED"]:
                 if 0 <= minutos_para_inicio <= 10:
-                    # Cai direto na aba ao vivo com contagem azul
                     aba_sugerida = "ao vivo"
                     cor_status = "azul"
                     status_traduzido = f"Começa em {minutos_para_inicio} min"
