@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
 import requests
 
-ESPN_API_URL = "https://site.api.espn.com/apis/site/v2/sports/soccer/brazil.1/scoreboard"
+# URL da ESPN com a temporada explícita de 2026 para evitar o erro 400
+ESPN_API_URL = "https://site.api.espn.com/apis/site/v2/sports/soccer/brazil.1/scoreboard?season=2026"
 
 def buscar_jogos_serie_a():
     try:
@@ -10,14 +11,10 @@ def buscar_jogos_serie_a():
             "Accept": "application/json"
         }
         
-        # Requisição limpa sem parâmetros extras para evitar o erro 400 da ESPN
         response = requests.get(ESPN_API_URL, headers=headers, timeout=10)
         
         if response.status_code != 200:
-            # Tentativa alternativa sem headers caso os cabeçalhos sejam rejeitados
-            response = requests.get(ESPN_API_URL, timeout=10)
-            if response.status_code != 200:
-                return {"jogos": [], "aviso": f"Não foi possível contactar a API da ESPN (Status: {response.status_code})"}
+            return {"jogos": [], "aviso": f"Falha ao contactar a API da ESPN (Status: {response.status_code})"}
         
         dados = response.json()
         eventos = dados.get("events", [])
