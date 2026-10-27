@@ -1,25 +1,35 @@
 from datetime import datetime, timezone
 import requests
 
-# URL da ESPN com a temporada explícita de 2026 para evitar o erro 400
-ESPN_API_URL = "https://site.api.espn.com/apis/site/v2/sports/soccer/brazil.1/scoreboard?season=2026"
+# Rota alternativa da ESPN (geralmente usada pelo app web deles, sem bloqueio de 400)
+ESPN_API_URL = "https://site.core.api.espn.com/apis/v2/scoreboard/header?sport=soccer&league=bra.1"
 
 def buscar_jogos_serie_a():
     try:
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
             "Accept": "application/json"
         }
         
         response = requests.get(ESPN_API_URL, headers=headers, timeout=10)
         
         if response.status_code != 200:
-            return {"jogos": [], "aviso": f"Falha ao contactar a API da ESPN (Status: {response.status_code})"}
+            return {"jogos": [], "aviso": f"Falha na API alternativa (Status: {response.status_code})"}
         
         dados = response.json()
-        eventos = dados.get("events", [])
-        jogos_processados = []
+        
+        # O formato dessa rota core costuma vir aninhado em sports -> leagues -> events
+        eventos = []
+        try:
+            sports = dados.get("sports", [])
+            for sport in sports:
+                leagues = sport.get("leagues", [])
+                for league in leagues:
+                    eventos = league.get("events", [])
+        except Exception:
+            eventos = dados.get("events", [])
 
+        jogos_processados = []
         agora_utc = datetime.now(timezone.utc)
 
         for evento in eventos:
