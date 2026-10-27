@@ -6,15 +6,18 @@ ESPN_API_URL = "https://site.api.espn.com/apis/site/v2/sports/soccer/brazil.1/sc
 
 def buscar_jogos_serie_a():
     try:
-        response = requests.get(ESPN_API_URL, timeout=10)
+        # Adicionando User-Agent para evitar bloqueios da API da ESPN
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+        response = requests.get(ESPN_API_URL, headers=headers, timeout=10)
+        
         if response.status_code != 200:
-            return {"erro": "Falha ao conectar com a API da ESPN"}
+            return {"erro": f"Falha ao conectar com a API da ESPN (Status: {response.status_code})"}
         
         dados = response.json()
         eventos = dados.get("events", [])
         jogos_processados = []
 
-        # Data e hora atual em UTC (garantindo compatibilidade com o fuso do servidor)
+        # Data e hora atual em UTC
         agora_utc = datetime.now(timezone.utc)
 
         for evento in eventos:
@@ -96,7 +99,6 @@ def buscar_jogos_serie_a():
                     cor_status = "azul"
                     status_traduzido = f"Começa em {minutos_para_inicio} min"
                 elif minutos_para_inicio < 0:
-                    # Caso a API demore para atualizar o estado para "in progress"
                     aba_sugerida = "ao vivo"
                     cor_status = "verde"
                     status_traduzido = "Vai começar"
