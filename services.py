@@ -102,13 +102,11 @@ def obter_jogos_serie_a():
             if is_cruzeiro_atleticomg:
                 is_atletico_gremio = False
 
-            # Novo ajuste: Vasco x Flamengo (Flamengo 2 x 1 Vasco)
             is_vasco_flamengo = (
                 ("vasco" in mandante.lower() and "flamengo" in visitante.lower()) or
                 ("flamengo" in mandante.lower() and "vasco" in visitante.lower())
             )
 
-            # Novo ajuste: Grêmio x Athletico-PR (Jogo às 21:30, forçado para agendado)
             is_gremio_athletico = (
                 ("grêmio" in mandante.lower() and "athletico" in visitante.lower()) or
                 ("gremio" in mandante.lower() and "athletico" in visitante.lower()) or
@@ -120,6 +118,7 @@ def obter_jogos_serie_a():
             tipo_status = status_obj.get("type", {})
             status_descricao = tipo_status.get("description", "Encerrado")
             
+            # Aplicação dos placares personalizados mantendo o status real da ESPN (exceto para jogos encerrados forçados)
             if is_corinthians_palmeiras:
                 if "corinthians" in mandante.lower():
                     placar_mandante = "1"
@@ -151,7 +150,7 @@ def obter_jogos_serie_a():
                 else:
                     placar_mandante = "0"
                     placar_visitante = "1"
-                status_descricao = "Intervalo"
+                # Aqui removemos o travamento de "Intervalo" fixo e deixamos a ESPN ditar o status real (ex: Segundo Tempo / Em andamento)
             elif is_atletico_gremio:
                 if "atlético" in mandante.lower() or "atletico" in mandante.lower():
                     placar_mandante = "3"
@@ -166,9 +165,8 @@ def obter_jogos_serie_a():
                 else:
                     placar_mandante = "2"
                     placar_visitante = "1"
-                status_descricao = "Em andamento"
             elif is_gremio_athletico:
-                status_descricao = "Agendado (21:30)"
+                status_descricao = "Agendado"
 
             placar = f"{placar_mandante} x {placar_visitante}"
             
@@ -180,11 +178,9 @@ def obter_jogos_serie_a():
                 is_atletico_gremio
             )
             
-            # Definição da aba sugerida
-            if is_gremio_athletico:
+            # Definição dinâmica da aba baseada no status real da ESPN ou nas regras de agendamento/encerramento
+            if is_gremio_athletico or "scheduled" in tipo_status.get("name", "").lower():
                 aba = "agendados"
-            elif is_cruzeiro_atleticomg or is_vasco_flamengo:
-                aba = "hoje"
             elif "encerrado" in status_descricao.lower() or "post" in tipo_status.get("name", "").lower() or jogo_encerrado_forcado:
                 aba = "encerrados"
             else:
@@ -197,7 +193,7 @@ def obter_jogos_serie_a():
                 "escudo_mandante": escudo_mandante,
                 "escudo_visitante": escudo_visitante,
                 "placar": placar,
-                "status": "Agendado" if is_gremio_athletico else ("Intervalo" if is_cruzeiro_atleticomg else ("Partida Encerrada" if jogo_encerrado_forcado else status_descricao)),
+                "status": "Partida Encerrada" if jogo_encerrado_forcado else status_descricao,
                 "aba_sugerida": aba
             })
             
