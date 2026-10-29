@@ -1,3 +1,4 @@
+
 import requests
 from config import ESPN_BRASILEIRA_URL, ESPN_SUMARIO_URL
 
@@ -25,15 +26,29 @@ def obter_jogos_serie_a():
             
             for comp in competitors:
                 if comp.get("homeAway") == "home":
-                    mandante = comp.get("team", {}).get("displayName", "Mandante")
-                    escudo_mandante = comp.get("team", {}).get("logo", "")
+                    team = comp.get("team", {})
+                    mandante = team.get("displayName", "Mandante")
+                    escudo_mandante = team.get("logo", "")
                 elif comp.get("homeAway") == "away":
-                    visitante = comp.get("team", {}).get("displayName", "Visitante")
-                    escudo_visitante = comp.get("team", {}).get("logo", "")
+                    team = comp.get("team", {})
+                    visitante = team.get("displayName", "Visitante")
+                    escudo_visitante = team.get("logo", "")
             
             status_obj = evento.get("status", {})
             tipo_status = status_obj.get("type", {})
-            status_descricao = tipo_status.get("description", "Em andamento")
+            
+            # Pega a descrição textual (ex: "Em andamento", "Intervalo", etc.) e o relógio/período
+            descricao_status = tipo_status.get("description", "Em andamento")
+            display_relogio = status_obj.get("displayClock", "")
+            periodo = status_obj.get("period", 0)
+            
+            # Formata o status para mostrar o tempo de jogo (ex: "2º Tempo - 65'" ou a descrição da ESPN)
+            if periodo > 0:
+                status_texto = f"{periodo}º Tempo"
+                if display_relogio:
+                    status_texto += f" - {display_relogio}"
+            else:
+                status_texto = descricao_status
             
             placar_mandante = "0"
             placar_visitante = "0"
@@ -51,7 +66,7 @@ def obter_jogos_serie_a():
                 "escudo_mandante": escudo_mandante,
                 "escudo_visitante": escudo_visitante,
                 "placar": placar,
-                "status": status_descricao
+                "status": status_texto
             })
             
         return {
@@ -71,10 +86,10 @@ def _resposta_fallback():
             {
                 "mandante": "Palmeiras",
                 "visitante": "Santos",
-                "escudo_mandante": "",
-                "escudo_visitante": "",
+                "escudo_mandante": "https://a.espncdn.com/i/teamlogos/soccer/500/349.png",
+                "escudo_visitante": "https://a.espncdn.com/i/teamlogos/soccer/500/2022.png",
                 "placar": "0 x 0",
-                "status": "Em andamento"
+                "status": "2º Tempo"
             }
         ]
     }
