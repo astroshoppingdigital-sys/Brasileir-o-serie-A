@@ -71,6 +71,7 @@ def obter_jogos_serie_a():
                 ("palmeiras" in mandante.lower() and "corinthians" in visitante.lower())
             )
             
+            # Ajuste anterior de Cruzeiro x Flamengo (mantido caso precise, mas agora temos Cruzeiro x Atlético-MG)
             is_cruzeiro_flamengo = (
                 ("cruzeiro" in mandante.lower() and "flamengo" in visitante.lower()) or
                 ("flamengo" in mandante.lower() and "cruzeiro" in visitante.lower())
@@ -88,12 +89,26 @@ def obter_jogos_serie_a():
                 ("vitoria" in mandante.lower() and "athletico" in visitante.lower())
             )
 
+            # Novo ajuste: Cruzeiro x Atlético-MG (Cruzeiro 1 x 0 Atlético-MG, jogo no intervalo/ao vivo)
+            is_cruzeiro_atleticomg = (
+                ("cruzeiro" in mandante.lower() and ("atlético" in visitante.lower() or "atletico" in visitante.lower())) or
+                (("atlético" in mandante.lower() or "atletico" in mandante.lower()) and "cruzeiro" in visitante.lower())
+            )
+            
+            # Antigo Atlético-MG x Grêmio (substituído pelo confronto atual do Cruzeiro x Atlético-MG, se aplicável, ou mantido de forma segura)
             is_atletico_gremio = (
                 ("atlético" in mandante.lower() and "grêmio" in visitante.lower()) or
                 ("grêmio" in mandante.lower() and "atlético" in visitante.lower()) or
                 ("atletico" in mandante.lower() and "gremio" in visitante.lower()) or
                 ("gremio" in mandante.lower() and "atletico" in visitante.lower())
             )
+            # Evita conflito caso o Atlético seja contra o Cruzeiro
+            if is_cruzeiro_atleticomg:
+                is_atletico_gremio = False
+
+            status_obj = evento.get("status", {})
+            tipo_status = status_obj.get("type", {})
+            status_descricao = tipo_status.get("description", "Encerrado")
             
             if is_corinthians_palmeiras:
                 if "corinthians" in mandante.lower():
@@ -119,6 +134,14 @@ def obter_jogos_serie_a():
             elif is_athletico_vitoria:
                 placar_mandante = "1"
                 placar_visitante = "1"
+            elif is_cruzeiro_atleticomg:
+                if "cruzeiro" in mandante.lower():
+                    placar_mandante = "1"
+                    placar_visitante = "0"
+                else:
+                    placar_mandante = "0"
+                    placar_visitante = "1"
+                status_descricao = "Intervalo"
             elif is_atletico_gremio:
                 if "atlético" in mandante.lower() or "atletico" in mandante.lower():
                     placar_mandante = "3"
@@ -127,10 +150,6 @@ def obter_jogos_serie_a():
                     placar_mandante = "0"
                     placar_visitante = "3"
 
-            status_obj = evento.get("status", {})
-            tipo_status = status_obj.get("type", {})
-            status_descricao = tipo_status.get("description", "Encerrado")
-            
             placar = f"{placar_mandante} x {placar_visitante}"
             
             jogo_encerrado_forcado = (
@@ -141,7 +160,10 @@ def obter_jogos_serie_a():
                 is_atletico_gremio
             )
             
-            if "encerrado" in status_descricao.lower() or "post" in tipo_status.get("name", "").lower() or jogo_encerrado_forcado:
+            # Se for o Cruzeiro x Atlético-MG no intervalo, vai para a aba "hoje" (ou ao vivo), senão segue a regra de encerrados
+            if is_cruzeiro_atleticomg:
+                aba = "hoje"
+            elif "encerrado" in status_descricao.lower() or "post" in tipo_status.get("name", "").lower() or jogo_encerrado_forcado:
                 aba = "encerrados"
             else:
                 aba = "hoje"
@@ -153,7 +175,7 @@ def obter_jogos_serie_a():
                 "escudo_mandante": escudo_mandante,
                 "escudo_visitante": escudo_visitante,
                 "placar": placar,
-                "status": "Partida Encerrada" if jogo_encerrado_forcado else status_descricao,
+                "status": "Intervalo" if is_cruzeiro_atleticomg else ("Partida Encerrada" if jogo_encerrado_forcado else status_descricao),
                 "aba_sugerida": aba
             })
             
