@@ -14,71 +14,74 @@ def obter_jogos_serie_a():
             return _resposta_oficial_santos_palmeiras()
             
         jogos_formatados = []
+        
+        # Injeta diretamente o clássico Santos x Palmeiras com os links exatos dos escudos enviados
+        jogos_formatados.append({
+            "mandante": "Santos",
+            "visitante": "Palmeiras",
+            "estadio": "Estádio Urbano Caldeira (Vila Belmiro)",
+            "escudo_mandante": "https://i.postimg.cc/4425PcHS/santos-fc.png",
+            "escudo_visitante": "https://i.postimg.cc/BbP1MXdb/palmeiras.png",
+            "placar": "0 x 0",
+            "status": "Partida Encerrada",
+            "aba_sugerida": "encerrados"
+        })
+        
+        # Adiciona os demais jogos da rodada da API (ignorando registros genéricos ou duplicados)
         for evento in eventos:
             competicao = evento.get("competitions", [{}])[0]
             competitors = competicao.get("competitors", [])
             
             mandante = ""
             visitante = ""
-            escudo_mandante = ""
-            escudo_visitante = ""
-            
             for comp in competitors:
                 team = comp.get("team", {})
                 nome_time = team.get("displayName", "")
-                logo_time = team.get("logo", "")
-                
                 if comp.get("homeAway") == "home":
                     mandante = nome_time
-                    escudo_mandante = logo_time
                 elif comp.get("homeAway") == "away":
                     visitante = nome_time
-                    escudo_visitante = logo_time
             
-            # Identifica se é o jogo fantasma/genérico ("Mandante" vs "Visitante")
-            is_fantasma = (
-                not mandante or mandante == "Mandante" or "mandante" in mandante.lower() or
-                not visitante or visitante == "Visitante" or "visitante" in visitante.lower()
-            )
+            if not mandante or not visitante or "mandante" in mandante.lower() or "visitante" in visitante.lower():
+                continue
+                
+            if "santos" in mandante.lower() and "palmeiras" in visitante.lower():
+                continue
+
+            venue = competicao.get("venue", {})
+            estadio = venue.get("fullName", "Estádio do Brasileirão")
             
-            if is_fantasma:
-                mandante = "Santos"
-                visitante = "Palmeiras"
-                escudo_mandante = "https://a.espncdn.com/i/teamlogos/soccer/500/2022.png"
-                escudo_visitante = "https://a.espncdn.com/i/teamlogos/soccer/500/349.png"
-                estadio = "Estádio Urbano Caldeira (Vila Belmiro)"
-                status_descricao = "Partida Encerrada"
-                placar = "0 x 0"
+            escudo_mandante = ""
+            escudo_visitante = ""
+            placar_mandante = "0"
+            placar_visitante = "0"
+            
+            for comp in competitors:
+                team = comp.get("team", {})
+                if comp.get("homeAway") == "home":
+                    escudo_mandante = team.get("logo", "")
+                    placar_mandante = comp.get("score", "0")
+                elif comp.get("homeAway") == "away":
+                    escudo_visitante = team.get("logo", "")
+                    placar_visitante = comp.get("score", "0")
+            
+            status_obj = evento.get("status", {})
+            tipo_status = status_obj.get("type", {})
+            status_descricao = tipo_status.get("description", "Encerrado")
+            
+            placar = f"{placar_mandante} x {placar_visitante}"
+            
+            if "encerrado" in status_descricao.lower() or "post" in tipo_status.get("name", "").lower():
                 aba = "encerrados"
             else:
-                venue = competicao.get("venue", {})
-                estadio = venue.get("fullName", "Estádio do Brasileirão")
-                
-                status_obj = evento.get("status", {})
-                tipo_status = status_obj.get("type", {})
-                status_descricao = tipo_status.get("description", "Encerrado")
-                
-                placar_mandante = "0"
-                placar_visitante = "0"
-                for comp in competitors:
-                    if comp.get("homeAway") == "home":
-                        placar_mandante = comp.get("score", "0")
-                    elif comp.get("homeAway") == "away":
-                        placar_visitante = comp.get("score", "0")
-                
-                placar = f"{placar_mandante} x {placar_visitante}"
-                
-                if "encerrado" in status_descricao.lower() or "post" in tipo_status.get("name", "").lower():
-                    aba = "encerrados"
-                else:
-                    aba = "hoje"
+                aba = "hoje"
 
             jogos_formatados.append({
                 "mandante": mandante,
                 "visitante": visitante,
                 "estadio": estadio,
-                "escudo_mandante": escudo_mandante or "https://a.espncdn.com/i/teamlogos/soccer/500/2022.png",
-                "escudo_visitante": escudo_visitante or "https://a.espncdn.com/i/teamlogos/soccer/500/349.png",
+                "escudo_mandante": escudo_mandante,
+                "escudo_visitante": escudo_visitante,
                 "placar": placar,
                 "status": status_descricao,
                 "aba_sugerida": aba
@@ -86,7 +89,7 @@ def obter_jogos_serie_a():
             
         return {
             "status": "sucesso",
-            "fonte": "ESPN API - Blindada Santos x Palmeiras",
+            "fonte": "API Customizada - Santos x Palmeiras",
             "jogos": jogos_formatados
         }
         
@@ -102,8 +105,8 @@ def _resposta_oficial_santos_palmeiras():
                 "mandante": "Santos",
                 "visitante": "Palmeiras",
                 "estadio": "Estádio Urbano Caldeira (Vila Belmiro)",
-                "escudo_mandante": "https://a.espncdn.com/i/teamlogos/soccer/500/2022.png",
-                "escudo_visitante": "https://a.espncdn.com/i/teamlogos/soccer/500/349.png",
+                "escudo_mandante": "https://i.postimg.cc/4425PcHS/santos-fc.png",
+                "escudo_visitante": "https://i.postimg.cc/BbP1MXdb/palmeiras.png",
                 "placar": "0 x 0",
                 "status": "Partida Encerrada",
                 "aba_sugerida": "encerrados"
