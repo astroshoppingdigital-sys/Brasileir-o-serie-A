@@ -65,13 +65,12 @@ def obter_jogos_serie_a():
                     escudo_visitante = team.get("logo", "")
                     placar_visitante = comp.get("score", "0")
             
-            # Ajustes específicos de placares solicitados
+            # Verificações de confrontos
             is_corinthians_palmeiras = (
                 ("corinthians" in mandante.lower() and "palmeiras" in visitante.lower()) or
                 ("palmeiras" in mandante.lower() and "corinthians" in visitante.lower())
             )
             
-            # Ajuste anterior de Cruzeiro x Flamengo (mantido caso precise, mas agora temos Cruzeiro x Atlético-MG)
             is_cruzeiro_flamengo = (
                 ("cruzeiro" in mandante.lower() and "flamengo" in visitante.lower()) or
                 ("flamengo" in mandante.lower() and "cruzeiro" in visitante.lower())
@@ -89,22 +88,33 @@ def obter_jogos_serie_a():
                 ("vitoria" in mandante.lower() and "athletico" in visitante.lower())
             )
 
-            # Novo ajuste: Cruzeiro x Atlético-MG (Cruzeiro 1 x 0 Atlético-MG, jogo no intervalo/ao vivo)
             is_cruzeiro_atleticomg = (
                 ("cruzeiro" in mandante.lower() and ("atlético" in visitante.lower() or "atletico" in visitante.lower())) or
                 (("atlético" in mandante.lower() or "atletico" in mandante.lower()) and "cruzeiro" in visitante.lower())
             )
             
-            # Antigo Atlético-MG x Grêmio (substituído pelo confronto atual do Cruzeiro x Atlético-MG, se aplicável, ou mantido de forma segura)
             is_atletico_gremio = (
                 ("atlético" in mandante.lower() and "grêmio" in visitante.lower()) or
                 ("grêmio" in mandante.lower() and "atlético" in visitante.lower()) or
                 ("atletico" in mandante.lower() and "gremio" in visitante.lower()) or
                 ("gremio" in mandante.lower() and "atletico" in visitante.lower())
             )
-            # Evita conflito caso o Atlético seja contra o Cruzeiro
             if is_cruzeiro_atleticomg:
                 is_atletico_gremio = False
+
+            # Novo ajuste: Vasco x Flamengo (Flamengo 2 x 1 Vasco)
+            is_vasco_flamengo = (
+                ("vasco" in mandante.lower() and "flamengo" in visitante.lower()) or
+                ("flamengo" in mandante.lower() and "vasco" in visitante.lower())
+            )
+
+            # Novo ajuste: Grêmio x Athletico-PR (Jogo às 21:30, forçado para agendado)
+            is_gremio_athletico = (
+                ("grêmio" in mandante.lower() and "athletico" in visitante.lower()) or
+                ("gremio" in mandante.lower() and "athletico" in visitante.lower()) or
+                ("athletico" in mandante.lower() and "grêmio" in visitante.lower()) or
+                ("athletico" in mandante.lower() and "gremio" in visitante.lower())
+            )
 
             status_obj = evento.get("status", {})
             tipo_status = status_obj.get("type", {})
@@ -149,6 +159,16 @@ def obter_jogos_serie_a():
                 else:
                     placar_mandante = "0"
                     placar_visitante = "3"
+            elif is_vasco_flamengo:
+                if "vasco" in mandante.lower():
+                    placar_mandante = "1"
+                    placar_visitante = "2"
+                else:
+                    placar_mandante = "2"
+                    placar_visitante = "1"
+                status_descricao = "Em andamento"
+            elif is_gremio_athletico:
+                status_descricao = "Agendado (21:30)"
 
             placar = f"{placar_mandante} x {placar_visitante}"
             
@@ -160,8 +180,10 @@ def obter_jogos_serie_a():
                 is_atletico_gremio
             )
             
-            # Se for o Cruzeiro x Atlético-MG no intervalo, vai para a aba "hoje" (ou ao vivo), senão segue a regra de encerrados
-            if is_cruzeiro_atleticomg:
+            # Definição da aba sugerida
+            if is_gremio_athletico:
+                aba = "agendados"
+            elif is_cruzeiro_atleticomg or is_vasco_flamengo:
                 aba = "hoje"
             elif "encerrado" in status_descricao.lower() or "post" in tipo_status.get("name", "").lower() or jogo_encerrado_forcado:
                 aba = "encerrados"
@@ -175,7 +197,7 @@ def obter_jogos_serie_a():
                 "escudo_mandante": escudo_mandante,
                 "escudo_visitante": escudo_visitante,
                 "placar": placar,
-                "status": "Intervalo" if is_cruzeiro_atleticomg else ("Partida Encerrada" if jogo_encerrado_forcado else status_descricao),
+                "status": "Agendado" if is_gremio_athletico else ("Intervalo" if is_cruzeiro_atleticomg else ("Partida Encerrada" if jogo_encerrado_forcado else status_descricao)),
                 "aba_sugerida": aba
             })
             
