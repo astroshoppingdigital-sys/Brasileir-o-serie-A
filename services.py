@@ -35,7 +35,7 @@ def obter_jogos_serie_a():
                     visitante = nome_time
                     escudo_visitante = logo_time
             
-            # Se a API retornar "Mandante" ou "Visitante" (ou vazio), forçamos Santos e Palmeiras com os escudos oficiais
+            # Identifica se é o jogo fantasma/genérico ("Mandante" vs "Visitante")
             is_fantasma = (
                 not mandante or mandante == "Mandante" or "mandante" in mandante.lower() or
                 not visitante or visitante == "Visitante" or "visitante" in visitante.lower()
@@ -46,10 +46,14 @@ def obter_jogos_serie_a():
                 visitante = "Palmeiras"
                 escudo_mandante = "https://a.espncdn.com/i/teamlogos/soccer/500/2022.png"
                 escudo_visitante = "https://a.espncdn.com/i/teamlogos/soccer/500/349.png"
+                estadio = "Estádio Urbano Caldeira (Vila Belmiro)"
                 status_descricao = "Partida Encerrada"
                 placar = "0 x 0"
                 aba = "encerrados"
             else:
+                venue = competicao.get("venue", {})
+                estadio = venue.get("fullName", "Estádio do Brasileirão")
+                
                 status_obj = evento.get("status", {})
                 tipo_status = status_obj.get("type", {})
                 status_descricao = tipo_status.get("description", "Encerrado")
@@ -64,7 +68,6 @@ def obter_jogos_serie_a():
                 
                 placar = f"{placar_mandante} x {placar_visitante}"
                 
-                # Define se vai para encerrados com base no status da ESPN
                 if "encerrado" in status_descricao.lower() or "post" in tipo_status.get("name", "").lower():
                     aba = "encerrados"
                 else:
@@ -73,6 +76,7 @@ def obter_jogos_serie_a():
             jogos_formatados.append({
                 "mandante": mandante,
                 "visitante": visitante,
+                "estadio": estadio,
                 "escudo_mandante": escudo_mandante or "https://a.espncdn.com/i/teamlogos/soccer/500/2022.png",
                 "escudo_visitante": escudo_visitante or "https://a.espncdn.com/i/teamlogos/soccer/500/349.png",
                 "placar": placar,
@@ -82,7 +86,7 @@ def obter_jogos_serie_a():
             
         return {
             "status": "sucesso",
-            "fonte": "ESPN API - Blindada",
+            "fonte": "ESPN API - Blindada Santos x Palmeiras",
             "jogos": jogos_formatados
         }
         
@@ -97,6 +101,7 @@ def _resposta_oficial_santos_palmeiras():
             {
                 "mandante": "Santos",
                 "visitante": "Palmeiras",
+                "estadio": "Estádio Urbano Caldeira (Vila Belmiro)",
                 "escudo_mandante": "https://a.espncdn.com/i/teamlogos/soccer/500/2022.png",
                 "escudo_visitante": "https://a.espncdn.com/i/teamlogos/soccer/500/349.png",
                 "placar": "0 x 0",
