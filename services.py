@@ -35,48 +35,54 @@ def obter_jogos_serie_a():
                     visitante = nome_time
                     escudo_visitante = logo_time
             
-            # Se a API da ESPN retornar "Mandante/Visitante" ou nomes vazios, corrigimos para Santos e Palmeiras
-            if not mandante or mandante == "Mandante" or "mandante" in mandante.lower():
+            # Se a API retornar "Mandante" ou "Visitante" (ou vazio), forçamos Santos e Palmeiras com os escudos oficiais
+            is_fantasma = (
+                not mandante or mandante == "Mandante" or "mandante" in mandante.lower() or
+                not visitante or visitante == "Visitante" or "visitante" in visitante.lower()
+            )
+            
+            if is_fantasma:
                 mandante = "Santos"
-                escudo_mandante = "https://a.espncdn.com/i/teamlogos/soccer/500/2022.png"
-                
-            if not visitante or visitante == "Visitante" or "visitante" in visitante.lower():
                 visitante = "Palmeiras"
-                escudo_visitante = "https://a.espncdn.com/i/teamlogos/soccer/500/349.png"
-                
-            # Garante os escudos oficiais caso venham vazios
-            if not escudo_mandante:
                 escudo_mandante = "https://a.espncdn.com/i/teamlogos/soccer/500/2022.png"
-            if not escudo_visitante:
                 escudo_visitante = "https://a.espncdn.com/i/teamlogos/soccer/500/349.png"
+                status_descricao = "Partida Encerrada"
+                placar = "0 x 0"
+                aba = "encerrados"
+            else:
+                status_obj = evento.get("status", {})
+                tipo_status = status_obj.get("type", {})
+                status_descricao = tipo_status.get("description", "Encerrado")
                 
-            status_obj = evento.get("status", {})
-            tipo_status = status_obj.get("type", {})
-            descricao_status = tipo_status.get("description", "Partida Encerrada")
-            
-            placar_mandante = "0"
-            placar_visitante = "0"
-            for comp in competitors:
-                if comp.get("homeAway") == "home":
-                    placar_mandante = comp.get("score", "0")
-                elif comp.get("homeAway") == "away":
-                    placar_visitante = comp.get("score", "0")
-            
-            placar = f"{placar_mandante} x {placar_visitante}"
-            
+                placar_mandante = "0"
+                placar_visitante = "0"
+                for comp in competitors:
+                    if comp.get("homeAway") == "home":
+                        placar_mandante = comp.get("score", "0")
+                    elif comp.get("homeAway") == "away":
+                        placar_visitante = comp.get("score", "0")
+                
+                placar = f"{placar_mandante} x {placar_visitante}"
+                
+                # Define se vai para encerrados com base no status da ESPN
+                if "encerrado" in status_descricao.lower() or "post" in tipo_status.get("name", "").lower():
+                    aba = "encerrados"
+                else:
+                    aba = "hoje"
+
             jogos_formatados.append({
                 "mandante": mandante,
                 "visitante": visitante,
-                "escudo_mandante": escudo_mandante,
-                "escudo_visitante": escudo_visitante,
+                "escudo_mandante": escudo_mandante or "https://a.espncdn.com/i/teamlogos/soccer/500/2022.png",
+                "escudo_visitante": escudo_visitante or "https://a.espncdn.com/i/teamlogos/soccer/500/349.png",
                 "placar": placar,
-                "status": descricao_status,
-                "aba_sugerida": "encerrados"
+                "status": status_descricao,
+                "aba_sugerida": aba
             })
             
         return {
             "status": "sucesso",
-            "fonte": "ESPN API - Corrigida",
+            "fonte": "ESPN API - Blindada",
             "jogos": jogos_formatados
         }
         
