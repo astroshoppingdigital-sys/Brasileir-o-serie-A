@@ -1,4 +1,3 @@
-
 import requests
 from config import ESPN_BRASILEIRA_URL, ESPN_SUMARIO_URL
 
@@ -19,6 +18,10 @@ def obter_jogos_serie_a():
             competicao = evento.get("competitions", [{}])[0]
             competitors = competicao.get("competitors", [])
             
+            # Tenta capturar o estádio da partida
+            venue = competicao.get("venue", {})
+            estadio = venue.get("fullName", "Vila Belmiro")
+            
             mandante = "Mandante"
             visitante = "Visitante"
             escudo_mandante = ""
@@ -27,22 +30,20 @@ def obter_jogos_serie_a():
             for comp in competitors:
                 if comp.get("homeAway") == "home":
                     team = comp.get("team", {})
-                    mandante = team.get("displayName", "Mandante")
-                    escudo_mandante = team.get("logo", "")
+                    mandante = team.get("displayName", "Santos")
+                    escudo_mandante = team.get("logo", "https://a.espncdn.com/i/teamlogos/soccer/500/2022.png")
                 elif comp.get("homeAway") == "away":
                     team = comp.get("team", {})
-                    visitante = team.get("displayName", "Visitante")
-                    escudo_visitante = team.get("logo", "")
+                    visitante = team.get("displayName", "Palmeiras")
+                    escudo_visitante = team.get("logo", "https://a.espncdn.com/i/teamlogos/soccer/500/349.png")
             
             status_obj = evento.get("status", {})
             tipo_status = status_obj.get("type", {})
             
-            # Pega a descrição textual (ex: "Em andamento", "Intervalo", etc.) e o relógio/período
             descricao_status = tipo_status.get("description", "Em andamento")
             display_relogio = status_obj.get("displayClock", "")
             periodo = status_obj.get("period", 0)
             
-            # Formata o status para mostrar o tempo de jogo (ex: "2º Tempo - 65'" ou a descrição da ESPN)
             if periodo > 0:
                 status_texto = f"{periodo}º Tempo"
                 if display_relogio:
@@ -63,6 +64,7 @@ def obter_jogos_serie_a():
             jogos_formatados.append({
                 "mandante": mandante,
                 "visitante": visitante,
+                "estadio": estadio,
                 "escudo_mandante": escudo_mandante,
                 "escudo_visitante": escudo_visitante,
                 "placar": placar,
@@ -84,10 +86,11 @@ def _resposta_fallback():
         "fonte": "Fallback Automático",
         "jogos": [
             {
-                "mandante": "Palmeiras",
-                "visitante": "Santos",
-                "escudo_mandante": "https://a.espncdn.com/i/teamlogos/soccer/500/349.png",
-                "escudo_visitante": "https://a.espncdn.com/i/teamlogos/soccer/500/2022.png",
+                "mandante": "Santos",
+                "visitante": "Palmeiras",
+                "estadio": "Vila Belmiro",
+                "escudo_mandante": "https://a.espncdn.com/i/teamlogos/soccer/500/2022.png",
+                "escudo_visitante": "https://a.espncdn.com/i/teamlogos/soccer/500/349.png",
                 "placar": "0 x 0",
                 "status": "2º Tempo"
             }
