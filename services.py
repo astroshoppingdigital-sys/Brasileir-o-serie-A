@@ -15,7 +15,7 @@ def obter_jogos_serie_a():
             
         jogos_formatados = []
         
-        # Injeta diretamente o clássico Santos x Palmeiras com os links exatos dos escudos enviados
+        # Injeta diretamente o clássico Santos x Palmeiras com os links dos seus escudos oficiais
         jogos_formatados.append({
             "mandante": "Santos",
             "visitante": "Palmeiras",
@@ -27,7 +27,7 @@ def obter_jogos_serie_a():
             "aba_sugerida": "encerrados"
         })
         
-        # Adiciona os demais jogos da rodada da API (ignorando registros genéricos ou duplicados)
+        # Adiciona os demais jogos da rodada da API
         for evento in eventos:
             competicao = evento.get("competitions", [{}])[0]
             competitors = competicao.get("competitors", [])
@@ -65,13 +65,83 @@ def obter_jogos_serie_a():
                     escudo_visitante = team.get("logo", "")
                     placar_visitante = comp.get("score", "0")
             
+            # Ajustes específicos de placares solicitados
+            is_corinthians_palmeiras = (
+                ("corinthians" in mandante.lower() and "palmeiras" in visitante.lower()) or
+                ("palmeiras" in mandante.lower() and "corinthians" in visitante.lower())
+            )
+            
+            is_cruzeiro_flamengo = (
+                ("cruzeiro" in mandante.lower() and "flamengo" in visitante.lower()) or
+                ("flamengo" in mandante.lower() and "cruzeiro" in visitante.lower())
+            )
+
+            is_mirassol_remo = (
+                ("mirassol" in mandante.lower() and "remo" in visitante.lower()) or
+                ("remo" in mandante.lower() and "mirassol" in visitante.lower())
+            )
+
+            is_athletico_vitoria = (
+                ("athletico" in mandante.lower() and "vitória" in visitante.lower()) or
+                ("vitória" in mandante.lower() and "athletico" in visitante.lower()) or
+                ("athletico-pr" in mandante.lower() and "vitória" in visitante.lower()) or
+                ("vitoria" in mandante.lower() and "athletico" in visitante.lower())
+            )
+
+            is_atletico_gremio = (
+                ("atlético" in mandante.lower() and "grêmio" in visitante.lower()) or
+                ("grêmio" in mandante.lower() and "atlético" in visitante.lower()) or
+                ("atletico" in mandante.lower() and "gremio" in visitante.lower()) or
+                ("gremio" in mandante.lower() and "atletico" in visitante.lower())
+            )
+            
+            if is_corinthians_palmeiras:
+                if "corinthians" in mandante.lower():
+                    placar_mandante = "1"
+                    placar_visitante = "4"
+                else:
+                    placar_mandante = "4"
+                    placar_visitante = "1"
+            elif is_cruzeiro_flamengo:
+                if "cruzeiro" in mandante.lower():
+                    placar_mandante = "2"
+                    placar_visitante = "1"
+                else:
+                    placar_mandante = "1"
+                    placar_visitante = "2"
+            elif is_mirassol_remo:
+                if "mirassol" in mandante.lower():
+                    placar_mandante = "2"
+                    placar_visitante = "1"
+                else:
+                    placar_mandante = "1"
+                    placar_visitante = "2"
+            elif is_athletico_vitoria:
+                placar_mandante = "1"
+                placar_visitante = "1"
+            elif is_atletico_gremio:
+                if "atlético" in mandante.lower() or "atletico" in mandante.lower():
+                    placar_mandante = "3"
+                    placar_visitante = "0"
+                else:
+                    placar_mandante = "0"
+                    placar_visitante = "3"
+
             status_obj = evento.get("status", {})
             tipo_status = status_obj.get("type", {})
             status_descricao = tipo_status.get("description", "Encerrado")
             
             placar = f"{placar_mandante} x {placar_visitante}"
             
-            if "encerrado" in status_descricao.lower() or "post" in tipo_status.get("name", "").lower():
+            jogo_encerrado_forcado = (
+                is_corinthians_palmeiras or 
+                is_cruzeiro_flamengo or 
+                is_mirassol_remo or 
+                is_athletico_vitoria or 
+                is_atletico_gremio
+            )
+            
+            if "encerrado" in status_descricao.lower() or "post" in tipo_status.get("name", "").lower() or jogo_encerrado_forcado:
                 aba = "encerrados"
             else:
                 aba = "hoje"
@@ -83,13 +153,13 @@ def obter_jogos_serie_a():
                 "escudo_mandante": escudo_mandante,
                 "escudo_visitante": escudo_visitante,
                 "placar": placar,
-                "status": status_descricao,
+                "status": "Partida Encerrada" if jogo_encerrado_forcado else status_descricao,
                 "aba_sugerida": aba
             })
             
         return {
             "status": "sucesso",
-            "fonte": "API Customizada - Santos x Palmeiras",
+            "fonte": "API Customizada com Ajustes",
             "jogos": jogos_formatados
         }
         
