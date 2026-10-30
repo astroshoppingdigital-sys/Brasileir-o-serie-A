@@ -88,6 +88,7 @@ def obter_jogos_serie_a():
                 ("vitoria" in mandante.lower() and "athletico" in visitante.lower())
             )
 
+            # Ajuste definitivo: Atlético-MG x Cruzeiro (Cruzeiro venceu por 1 a 0 fora de casa)
             is_cruzeiro_atleticomg = (
                 ("cruzeiro" in mandante.lower() and ("atlético" in visitante.lower() or "atletico" in visitante.lower())) or
                 (("atlético" in mandante.lower() or "atletico" in mandante.lower()) and "cruzeiro" in visitante.lower())
@@ -118,7 +119,7 @@ def obter_jogos_serie_a():
             tipo_status = status_obj.get("type", {})
             status_descricao = tipo_status.get("description", "Encerrado")
             
-            # Aplicação dos placares personalizados
+            # Aplicação dos placares corretos e definitivos
             if is_corinthians_palmeiras:
                 if "corinthians" in mandante.lower():
                     placar_mandante = "1"
@@ -144,6 +145,7 @@ def obter_jogos_serie_a():
                 placar_mandante = "1"
                 placar_visitante = "1"
             elif is_cruzeiro_atleticomg:
+                # Atlético-MG mandante (Arena MRV) e Cruzeiro visitante: Cruzeiro 1 x 0 Atlético-MG
                 if "cruzeiro" in mandante.lower():
                     placar_mandante = "1"
                     placar_visitante = "0"
@@ -160,24 +162,27 @@ def obter_jogos_serie_a():
             elif is_vasco_flamengo:
                 if "vasco" in mandante.lower():
                     placar_mandante = "1"
-                    placar_visitante = "2"
+                    placar_visitante = "4"  # Ajustado para 4 a 1 conforme solicitado
                 else:
-                    placar_mandante = "2"
+                    placar_mandante = "4"
                     placar_visitante = "1"
             elif is_gremio_athletico:
                 status_descricao = "Agendado"
 
             placar = f"{placar_mandante} x {placar_visitante}"
             
+            # Jogos que devem ser considerados encerrados obrigatoriamente pelas regras manuais
             jogo_encerrado_forcado = (
                 is_corinthians_palmeiras or 
                 is_cruzeiro_flamengo or 
                 is_mirassol_remo or 
                 is_athletico_vitoria or 
-                is_atletico_gremio
+                is_atletico_gremio or
+                is_cruzeiro_atleticomg or
+                is_vasco_flamengo
             )
             
-            # Definição dinâmica da aba
+            # Definição da aba sugerida
             if is_gremio_athletico or "scheduled" in tipo_status.get("name", "").lower():
                 aba = "agendados"
             elif "encerrado" in status_descricao.lower() or "post" in tipo_status.get("name", "").lower() or jogo_encerrado_forcado:
