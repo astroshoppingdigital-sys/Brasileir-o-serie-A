@@ -118,7 +118,7 @@ def obter_jogos_serie_a():
             tipo_status = status_obj.get("type", {})
             status_descricao = tipo_status.get("description", "Encerrado")
             
-            # Aplicação dos placares personalizados mantendo o status real da ESPN (exceto para jogos encerrados forçados)
+            # Aplicação dos placares personalizados
             if is_corinthians_palmeiras:
                 if "corinthians" in mandante.lower():
                     placar_mandante = "1"
@@ -150,7 +150,6 @@ def obter_jogos_serie_a():
                 else:
                     placar_mandante = "0"
                     placar_visitante = "1"
-                # Aqui removemos o travamento de "Intervalo" fixo e deixamos a ESPN ditar o status real (ex: Segundo Tempo / Em andamento)
             elif is_atletico_gremio:
                 if "atlético" in mandante.lower() or "atletico" in mandante.lower():
                     placar_mandante = "3"
@@ -178,7 +177,7 @@ def obter_jogos_serie_a():
                 is_atletico_gremio
             )
             
-            # Definição dinâmica da aba baseada no status real da ESPN ou nas regras de agendamento/encerramento
+            # Definição dinâmica da aba
             if is_gremio_athletico or "scheduled" in tipo_status.get("name", "").lower():
                 aba = "agendados"
             elif "encerrado" in status_descricao.lower() or "post" in tipo_status.get("name", "").lower() or jogo_encerrado_forcado:
