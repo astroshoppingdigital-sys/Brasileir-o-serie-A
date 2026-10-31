@@ -2,7 +2,6 @@ import requests
 from datetime import datetime, timezone, timedelta
 from config import ESPN_BRASILEIRA_URL, ESPN_SUMARIO_URL
 
-# URL oficial da tabela de classificação da Série A na ESPN
 ESPN_TABELA_URL = "https://site.api.espn.com/apis/v2/sports/soccer/bra.1/standings"
 
 def _converter_horario_brasilia(date_str):
@@ -10,15 +9,12 @@ def _converter_horario_brasilia(date_str):
     try:
         if not date_str:
             return "A definir", ""
-        # Remove o 'Z' e converte para datetime com timezone UTC
         dt_utc = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-        
-        # Fuso de Brasília (UTC-3)
         fuso_brasilia = timezone(timedelta(hours=-3))
         dt_brasilia = dt_utc.astimezone(fuso_brasilia)
         
-        horario = dt_brasilia.strftime("%H:%M")  # Ex: "16:00"
-        data_formatada = dt_brasilia.strftime("%d/%m/%Y")  # Ex: "01/11/2026"
+        horario = dt_brasilia.strftime("%H:%M")
+        data_formatada = dt_brasilia.strftime("%d/%m/%Y")
         return horario, data_formatada
     except Exception:
         return "A definir", ""
@@ -27,32 +23,47 @@ def obter_jogos_serie_a():
     try:
         response = requests.get(ESPN_BRASILEIRA_URL, timeout=10)
         if response.status_code != 200:
-            return _resposta_oficial_santos_palmeiras()
+            return _resposta_padrao_completa()
         
         data = response.json()
         eventos = data.get("events", [])
         
         if not eventos:
-            return _resposta_oficial_santos_palmeiras()
+            return _resposta_padrao_completa()
             
         jogos_formatados = []
         
-        # Injeta diretamente o clássico Santos x Palmeiras com os links dos seus escudos oficiais
-        jogos_formatados.append({
-            "mandante": "Santos",
-            "visitante": "Palmeiras",
-            "estadio": "Estádio Urbano Caldeira (Vila Belmiro)",
-            "escudo_mandante": "https://i.postimg.cc/4425PcHS/santos-fc.png",
-            "escudo_visitante": "https://i.postimg.cc/BbP1MXdb/palmeiras.png",
-            "placar": "0 x 0",
-            "horario": "16:00",
-            "data": "16/11/2026",
-            "status": "Partida Finalizada",
-            "cor_status": "#E0E0E0",
-            "aba_sugerida": "encerrados"
-        })
+        # 1. Injeta os jogos históricos/encerrados que precisam ficar fixos e não sumir nunca (ex: Corinthians x Mirassol, Santos x Palmeiras)
+        jogos_formatados.extend([
+            {
+                "mandante": "Corinthians",
+                "visitante": "Mirassol",
+                "estadio": "Neo Química Arena",
+                "escudo_mandante": "https://a.espncdn.com/i/teamlogos/soccer/500/874.png",
+                "escudo_visitante": "https://a.espncdn.com/i/teamlogos/soccer/500/9169.png",
+                "placar": "1 x 0",
+                "horario": "20:00",
+                "data": "30/10/2026",
+                "status": "Partida Finalizada",
+                "cor_status": "#E0E0E0",
+                "aba_sugerida": "encerrados"
+            },
+            {
+                "mandante": "Santos",
+                "visitante": "Palmeiras",
+                "estadio": "Estádio Urbano Caldeira (Vila Belmiro)",
+                "escudo_mandante": "https://i.postimg.cc/4425PcHS/santos-fc.png",
+                "escudo_visitante": "https://i.postimg.cc/BbP1MXdb/palmeiras.png",
+                "placar": "0 x 0",
+                "horario": "16:00",
+                "data": "31/10/2026",
+                "status": "Partida Finalizada",
+                "cor_status": "#E0E0E0",
+                "aba_sugerida": "encerrados"
+            }
+        ])
         
-        # Adiciona os demais jogos da rodada da API com conversão dinâmica de horário
+        # 2. Processa todos os jogos da rodada/semana vindos da API da ESPN
         for evento in eventos:
             competicao = evento.get("competitions", [{}])[0]
             competitors = competicao.get("competitors", [])
@@ -70,7 +81,9 @@ def obter_jogos_serie_a():
             if not mandante or not visitante or "mandante" in mandante.lower() or "visitante" in visitante.lower():
                 continue
                 
-            if "santos" in mandante.lower() and "palmeiras" in visitante.lower():
+            # Evita duplicar os jogos fixos manuais
+            if ("santos" in mandante.lower() and "palmeiras" in visitante.lower()) or \
+               ("corinthians" in mandante.lower() and "mirassol" in visitante.lower()):
                 continue
 
             venue = competicao.get("venue", {})
@@ -90,7 +103,6 @@ def obter_jogos_serie_a():
                     escudo_visitante = team.get("logo", "")
                     placar_visitante = comp.get("score", "0")
             
-            # Puxa a data/hora direto da fonte de dados da ESPN e converte para o horário local
             date_raw = evento.get("date", "")
             horario, data_jogo = _converter_horario_brasilia(date_raw)
             
@@ -105,15 +117,15 @@ def obter_jogos_serie_a():
             if is_encerrado:
                 aba = "encerrados"
                 texto_status = "Partida Finalizada"
-                cor_status = "#E0E0E0"
+                cor_status = "#E0E0E0"  # Cor gelo solicitada
             elif is_ao_vivo:
                 aba = "hoje"
                 texto_status = status_descricao
-                cor_status = "#00FF7F"
+                cor_status = "#00FF7F"  # Verde destaque
             else:
                 aba = "agendados"
                 texto_status = status_descricao
-                cor_status = "#FFD700"
+                cor_status = "#FFD700"  # Amarelo
 
             placar = f"{placar_mandante} x {placar_visitante}"
 
@@ -138,7 +150,7 @@ def obter_jogos_serie_a():
         }
         
     except Exception as e:
-        return _resposta_oficial_santos_palmeiras()
+        return _resposta_padrao_completa()
 
 def obter_tabela_serie_a():
     try:
@@ -187,11 +199,24 @@ def obter_tabela_serie_a():
     except Exception as e:
         return {"status": "erro", "detalhe": str(e)}
 
-def _resposta_oficial_santos_palmeiras():
+def _resposta_padrao_completa():
     return {
         "status": "sucesso",
-        "fonte": "Fallback Oficial - Santos x Palmeiras",
+        "fonte": "Fallback Oficial Completo",
         "jogos": [
+            {
+                "mandante": "Corinthians",
+                "visitante": "Mirassol",
+                "estadio": "Neo Química Arena",
+                "escudo_mandante": "https://a.espncdn.com/i/teamlogos/soccer/500/874.png",
+                "escudo_visitante": "https://a.espncdn.com/i/teamlogos/soccer/500/9169.png",
+                "placar": "1 x 0",
+                "horario": "20:00",
+                "data": "30/10/2026",
+                "status": "Partida Finalizada",
+                "cor_status": "#E0E0E0",
+                "aba_sugerida": "encerrados"
+            },
             {
                 "mandante": "Santos",
                 "visitante": "Palmeiras",
@@ -200,7 +225,7 @@ def _resposta_oficial_santos_palmeiras():
                 "escudo_visitante": "https://i.postimg.cc/BbP1MXdb/palmeiras.png",
                 "placar": "0 x 0",
                 "horario": "16:00",
-                "data": "16/11/2026",
+                "data": "31/10/2026",
                 "status": "Partida Finalizada",
                 "cor_status": "#E0E0E0",
                 "aba_sugerida": "encerrados"
