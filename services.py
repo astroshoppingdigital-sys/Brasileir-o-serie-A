@@ -23,17 +23,49 @@ def obter_jogos_serie_a():
     try:
         response = requests.get(ESPN_BRASILEIRA_URL, timeout=10)
         if response.status_code != 200:
-            return _resposta_padrao_completa()
+            return _resposta_historico_completo()
         
         data = response.json()
         eventos = data.get("events", [])
         
-        if not eventos:
-            return _resposta_padrao_completa()
-            
-        jogos_formatados = []
+        # Inicia a lista já garantindo o histórico fixo de jogos encerrados para a aba nunca esvaziar
+        jogos_formatados = [
+            {
+                "mandante": "Corinthians",
+                "visitante": "Mirassol",
+                "estadio": "Neo Química Arena",
+                "escudo_mandante": "https://a.espncdn.com/i/teamlogos/soccer/500/874.png",
+                "escudo_visitante": "https://a.espncdn.com/i/teamlogos/soccer/500/9169.png",
+                "placar": "2 x 0",
+                "horario": "20:00",
+                "data": "30/10/2026",
+                "status": "Partida Finalizada",
+                "cor_status": "#E0E0E0",
+                "aba_sugerida": "encerrados"
+            },
+            {
+                "mandante": "Santos",
+                "visitante": "Palmeiras",
+                "estadio": "Estádio Urbano Caldeira (Vila Belmiro)",
+                "escudo_mandante": "https://i.postimg.cc/4425PcHS/santos-fc.png",
+                "escudo_visitante": "https://i.postimg.cc/BbP1MXdb/palmeiras.png",
+                "placar": "0 x 0",
+                "horario": "16:00",
+                "data": "31/10/2026",
+                "status": "Partida Finalizada",
+                "cor_status": "#E0E0E0",
+                "aba_sugerida": "encerrados"
+            }
+        ]
         
-        # Processa todos os jogos da rodada/semana vindos diretamente da API da ESPN (com placar real)
+        if not eventos:
+            return {
+                "status": "sucesso",
+                "fonte": "API Customizada com Histórico Salvo",
+                "jogos": jogos_formatados
+            }
+            
+        # Processa os demais jogos vindos da API da ESPN (ao vivo, agendados ou novos encerrados)
         for evento in eventos:
             competicao = evento.get("competitions", [{}])[0]
             competitors = competicao.get("competitors", [])
@@ -49,6 +81,11 @@ def obter_jogos_serie_a():
                     visitante = nome_time
             
             if not mandante or not visitante or "mandante" in mandante.lower() or "visitante" in visitante.lower():
+                continue
+
+            # Evita duplicar os jogos já fixados no histórico manual
+            if ("santos" in mandante.lower() and "palmeiras" in visitante.lower()) or \
+               ("corinthians" in mandante.lower() and "mirassol" in visitante.lower()):
                 continue
 
             venue = competicao.get("venue", {})
@@ -94,10 +131,6 @@ def obter_jogos_serie_a():
 
             placar = f"{placar_mandante} x {placar_visitante}"
 
-            # Ajuste pontual caso queira garantir o placar de 2x0 do Corinthians caso a ESPN zere o histórico antigo
-            if "corinthians" in mandante.lower() and "mirassol" in visitante.lower() and placar == "0 x 0" and is_encerrado:
-                placar = "2 x 0"
-
             jogos_formatados.append({
                 "mandante": mandante,
                 "visitante": visitante,
@@ -119,7 +152,7 @@ def obter_jogos_serie_a():
         }
         
     except Exception as e:
-        return _resposta_padrao_completa()
+        return _resposta_historico_completo()
 
 def obter_tabela_serie_a():
     try:
@@ -168,10 +201,10 @@ def obter_tabela_serie_a():
     except Exception as e:
         return {"status": "erro", "detalhe": str(e)}
 
-def _resposta_padrao_completa():
+def _resposta_historico_completo():
     return {
         "status": "sucesso",
-        "fonte": "Fallback Oficial Completo",
+        "fonte": "Fallback Histórico Completo",
         "jogos": [
             {
                 "mandante": "Corinthians",
@@ -182,6 +215,19 @@ def _resposta_padrao_completa():
                 "placar": "2 x 0",
                 "horario": "20:00",
                 "data": "30/10/2026",
+                "status": "Partida Finalizada",
+                "cor_status": "#E0E0E0",
+                "aba_sugerida": "encerrados"
+            },
+            {
+                "mandante": "Santos",
+                "visitante": "Palmeiras",
+                "estadio": "Estádio Urbano Caldeira (Vila Belmiro)",
+                "escudo_mandante": "https://i.postimg.cc/4425PcHS/santos-fc.png",
+                "escudo_visitante": "https://i.postimg.cc/BbP1MXdb/palmeiras.png",
+                "placar": "0 x 0",
+                "horario": "16:00",
+                "data": "31/10/2026",
                 "status": "Partida Finalizada",
                 "cor_status": "#E0E0E0",
                 "aba_sugerida": "encerrados"
