@@ -1,8 +1,27 @@
 import requests
+from datetime import datetime, timezone, timedelta
 from config import ESPN_BRASILEIRA_URL, ESPN_SUMARIO_URL
 
 # URL oficial da tabela de classificação da Série A na ESPN
 ESPN_TABELA_URL = "https://site.api.espn.com/apis/v2/sports/soccer/bra.1/standings"
+
+def _converter_horario_brasilia(date_str):
+    """Converte a data/hora UTC da ESPN para o horário de Brasília (UTC-3)"""
+    try:
+        if not date_str:
+            return "A definir", ""
+        # Remove o 'Z' e converte para datetime com timezone UTC
+        dt_utc = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+        
+        # Fuso de Brasília (UTC-3)
+        fuso_brasilia = timezone(timedelta(hours=-3))
+        dt_brasilia = dt_utc.astimezone(fuso_brasilia)
+        
+        horario = dt_brasilia.strftime("%H:%M")  # Ex: "16:00"
+        data_formatada = dt_brasilia.strftime("%d/%m/%Y")  # Ex: "01/11/2026"
+        return horario, data_formatada
+    except Exception:
+        return "A definir", ""
 
 def obter_jogos_serie_a():
     try:
@@ -26,12 +45,14 @@ def obter_jogos_serie_a():
             "escudo_mandante": "https://i.postimg.cc/4425PcHS/santos-fc.png",
             "escudo_visitante": "https://i.postimg.cc/BbP1MXdb/palmeiras.png",
             "placar": "0 x 0",
+            "horario": "16:00",
+            "data": "16/11/2026",
             "status": "Partida Finalizada",
             "cor_status": "#E0E0E0",
             "aba_sugerida": "encerrados"
         })
         
-        # Adiciona os demais jogos da rodada da API
+        # Adiciona os demais jogos da rodada da API com conversão dinâmica de horário
         for evento in eventos:
             competicao = evento.get("competitions", [{}])[0]
             competitors = competicao.get("competitors", [])
@@ -69,28 +90,30 @@ def obter_jogos_serie_a():
                     escudo_visitante = team.get("logo", "")
                     placar_visitante = comp.get("score", "0")
             
+            # Puxa a data/hora direto da fonte de dados da ESPN e converte para o horário local
+            date_raw = evento.get("date", "")
+            horario, data_jogo = _converter_horario_brasilia(date_raw)
+            
             status_obj = evento.get("status", {})
             tipo_status = status_obj.get("type", {})
             status_descricao = tipo_status.get("description", "Agendado")
             status_name = tipo_status.get("name", "").lower()
             
-            # Identifica se a partida já começou, está ao vivo ou terminou pela ESPN
             is_ao_vivo = "in" in status_name or "status_in_progress" in status_name or "halftime" in status_name
             is_encerrado = "post" in status_name or "encerrado" in status_descricao.lower() or "ft" in status_name
             
-            # Definição dinâmica da aba e do status visual
             if is_encerrado:
                 aba = "encerrados"
                 texto_status = "Partida Finalizada"
-                cor_status = "#E0E0E0"  # Cor gelo
+                cor_status = "#E0E0E0"
             elif is_ao_vivo:
                 aba = "hoje"
                 texto_status = status_descricao
-                cor_status = "#00FF7F"  # Verde destaque
+                cor_status = "#00FF7F"
             else:
                 aba = "agendados"
                 texto_status = status_descricao
-                cor_status = "#FFD700"  # Amarelo
+                cor_status = "#FFD700"
 
             placar = f"{placar_mandante} x {placar_visitante}"
 
@@ -101,6 +124,8 @@ def obter_jogos_serie_a():
                 "escudo_mandante": escudo_mandante,
                 "escudo_visitante": escudo_visitante,
                 "placar": placar,
+                "horario": horario,
+                "data": data_jogo,
                 "status": texto_status,
                 "cor_status": cor_status,
                 "aba_sugerida": aba
@@ -174,6 +199,8 @@ def _resposta_oficial_santos_palmeiras():
                 "escudo_mandante": "https://i.postimg.cc/4425PcHS/santos-fc.png",
                 "escudo_visitante": "https://i.postimg.cc/BbP1MXdb/palmeiras.png",
                 "placar": "0 x 0",
+                "horario": "16:00",
+                "data": "16/11/2026",
                 "status": "Partida Finalizada",
                 "cor_status": "#E0E0E0",
                 "aba_sugerida": "encerrados"
