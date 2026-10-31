@@ -1,6 +1,9 @@
 import requests
 from config import ESPN_BRASILEIRA_URL, ESPN_SUMARIO_URL
 
+# URL oficial da tabela de classificação da Série A na ESPN
+ESPN_TABELA_URL = "https://site.api.espn.com/apis/v2/sports/soccer/bra.1/standings"
+
 def obter_jogos_serie_a():
     try:
         response = requests.get(ESPN_BRASILEIRA_URL, timeout=10)
@@ -24,7 +27,7 @@ def obter_jogos_serie_a():
             "escudo_visitante": "https://i.postimg.cc/BbP1MXdb/palmeiras.png",
             "placar": "0 x 0",
             "status": "Partida Finalizada",
-            "cor_status": "#E0E0E0", # Tom gelo / claro para destaque
+            "cor_status": "#E0E0E0",
             "aba_sugerida": "encerrados"
         })
         
@@ -79,15 +82,15 @@ def obter_jogos_serie_a():
             if is_encerrado:
                 aba = "encerrados"
                 texto_status = "Partida Finalizada"
-                cor_status = "#E0E0E0"  # Cor gelo solicitada
+                cor_status = "#E0E0E0"  # Cor gelo
             elif is_ao_vivo:
                 aba = "hoje"
-                texto_status = status_descricao # Ex: "1º Tempo", "Intervalo", etc.
-                cor_status = "#00FF7F"  # Verde destaque para ao vivo
+                texto_status = status_descricao
+                cor_status = "#00FF7F"  # Verde destaque
             else:
                 aba = "agendados"
-                texto_status = status_descricao # Ex: "Scheduled" ou horário
-                cor_status = "#FFD700"  # Amarelo para agendados
+                texto_status = status_descricao
+                cor_status = "#FFD700"  # Amarelo
 
             placar = f"{placar_mandante} x {placar_visitante}"
 
@@ -111,6 +114,53 @@ def obter_jogos_serie_a():
         
     except Exception as e:
         return _resposta_oficial_santos_palmeiras()
+
+def obter_tabela_serie_a():
+    try:
+        response = requests.get(ESPN_TABELA_URL, timeout=10)
+        if response.status_code != 200:
+            return {"status": "erro", "mensagem": "Falha ao conectar com a API da ESPN"}
+        
+        data = response.json()
+        tabela_formatada = []
+        
+        children = data.get("children", [])
+        if not children:
+            return {"status": "erro", "mensagem": "Dados da tabela não encontrados"}
+            
+        standings = children[0].get("standings", {}).get("entries", [])
+        
+        for index, entry in enumerate(standings, start=1):
+            team = entry.get("team", {})
+            nome_clube = team.get("displayName", "")
+            
+            logos = team.get("logos", [])
+            escudo = logos[0].get("href", "") if logos else ""
+            
+            stats = {stat.get("name"): stat.get("value") for stat in entry.get("stats", [])}
+            
+            tabela_formatada.append({
+                "posicao": index,
+                "clube": nome_clube,
+                "escudo": escudo,
+                "pontos": int(stats.get("points", 0)),
+                "jogos": int(stats.get("gamesPlayed", 0)),
+                "vitorias": int(stats.get("wins", 0)),
+                "empates": int(stats.get("ties", 0)),
+                "derrotas": int(stats.get("losses", 0)),
+                "gols_pro": int(stats.get("pointsFor", 0)),
+                "gols_contra": int(stats.get("pointsAgainst", 0)),
+                "saldo_gols": int(stats.get("pointDifferential", 0))
+            })
+            
+        return {
+            "status": "sucesso",
+            "fonte": "ESPN Standings em Tempo Real",
+            "tabela": tabela_formatada
+        }
+        
+    except Exception as e:
+        return {"status": "erro", "detalhe": str(e)}
 
 def _resposta_oficial_santos_palmeiras():
     return {
