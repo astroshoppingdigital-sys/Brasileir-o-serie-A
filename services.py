@@ -33,37 +33,7 @@ def obter_jogos_serie_a():
             
         jogos_formatados = []
         
-        # 1. Injeta os jogos históricos/encerrados que precisam ficar fixos e não sumir nunca (ex: Corinthians x Mirassol, Santos x Palmeiras)
-        jogos_formatados.extend([
-            {
-                "mandante": "Corinthians",
-                "visitante": "Mirassol",
-                "estadio": "Neo Química Arena",
-                "escudo_mandante": "https://a.espncdn.com/i/teamlogos/soccer/500/874.png",
-                "escudo_visitante": "https://a.espncdn.com/i/teamlogos/soccer/500/9169.png",
-                "placar": "1 x 0",
-                "horario": "20:00",
-                "data": "30/10/2026",
-                "status": "Partida Finalizada",
-                "cor_status": "#E0E0E0",
-                "aba_sugerida": "encerrados"
-            },
-            {
-                "mandante": "Santos",
-                "visitante": "Palmeiras",
-                "estadio": "Estádio Urbano Caldeira (Vila Belmiro)",
-                "escudo_mandante": "https://i.postimg.cc/4425PcHS/santos-fc.png",
-                "escudo_visitante": "https://i.postimg.cc/BbP1MXdb/palmeiras.png",
-                "placar": "0 x 0",
-                "horario": "16:00",
-                "data": "31/10/2026",
-                "status": "Partida Finalizada",
-                "cor_status": "#E0E0E0",
-                "aba_sugerida": "encerrados"
-            }
-        ])
-        
-        # 2. Processa todos os jogos da rodada/semana vindos da API da ESPN
+        # Processa todos os jogos da rodada/semana vindos diretamente da API da ESPN (com placar real)
         for evento in eventos:
             competicao = evento.get("competitions", [{}])[0]
             competitors = competicao.get("competitors", [])
@@ -80,11 +50,6 @@ def obter_jogos_serie_a():
             
             if not mandante or not visitante or "mandante" in mandante.lower() or "visitante" in visitante.lower():
                 continue
-                
-            # Evita duplicar os jogos fixos manuais
-            if ("santos" in mandante.lower() and "palmeiras" in visitante.lower()) or \
-               ("corinthians" in mandante.lower() and "mirassol" in visitante.lower()):
-                continue
 
             venue = competicao.get("venue", {})
             estadio = venue.get("fullName", "Estádio do Brasileirão")
@@ -98,10 +63,10 @@ def obter_jogos_serie_a():
                 team = comp.get("team", {})
                 if comp.get("homeAway") == "home":
                     escudo_mandante = team.get("logo", "")
-                    placar_mandante = comp.get("score", "0")
+                    placar_mandante = str(comp.get("score", "0"))
                 elif comp.get("homeAway") == "away":
                     escudo_visitante = team.get("logo", "")
-                    placar_visitante = comp.get("score", "0")
+                    placar_visitante = str(comp.get("score", "0"))
             
             date_raw = evento.get("date", "")
             horario, data_jogo = _converter_horario_brasilia(date_raw)
@@ -117,7 +82,7 @@ def obter_jogos_serie_a():
             if is_encerrado:
                 aba = "encerrados"
                 texto_status = "Partida Finalizada"
-                cor_status = "#E0E0E0"  # Cor gelo solicitada
+                cor_status = "#E0E0E0"  # Cor gelo
             elif is_ao_vivo:
                 aba = "hoje"
                 texto_status = status_descricao
@@ -128,6 +93,10 @@ def obter_jogos_serie_a():
                 cor_status = "#FFD700"  # Amarelo
 
             placar = f"{placar_mandante} x {placar_visitante}"
+
+            # Ajuste pontual caso queira garantir o placar de 2x0 do Corinthians caso a ESPN zere o histórico antigo
+            if "corinthians" in mandante.lower() and "mirassol" in visitante.lower() and placar == "0 x 0" and is_encerrado:
+                placar = "2 x 0"
 
             jogos_formatados.append({
                 "mandante": mandante,
@@ -210,22 +179,9 @@ def _resposta_padrao_completa():
                 "estadio": "Neo Química Arena",
                 "escudo_mandante": "https://a.espncdn.com/i/teamlogos/soccer/500/874.png",
                 "escudo_visitante": "https://a.espncdn.com/i/teamlogos/soccer/500/9169.png",
-                "placar": "1 x 0",
+                "placar": "2 x 0",
                 "horario": "20:00",
                 "data": "30/10/2026",
-                "status": "Partida Finalizada",
-                "cor_status": "#E0E0E0",
-                "aba_sugerida": "encerrados"
-            },
-            {
-                "mandante": "Santos",
-                "visitante": "Palmeiras",
-                "estadio": "Estádio Urbano Caldeira (Vila Belmiro)",
-                "escudo_mandante": "https://i.postimg.cc/4425PcHS/santos-fc.png",
-                "escudo_visitante": "https://i.postimg.cc/BbP1MXdb/palmeiras.png",
-                "placar": "0 x 0",
-                "horario": "16:00",
-                "data": "31/10/2026",
                 "status": "Partida Finalizada",
                 "cor_status": "#E0E0E0",
                 "aba_sugerida": "encerrados"
